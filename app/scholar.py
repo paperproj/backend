@@ -108,31 +108,34 @@ class SemanticScholarClient:
 
 
     def get_fallback_paper(self, query=None):
-
         while True:
-
-            # Refill the cache if need be
-            if self.fallback_index >= len(self.fallback_cache):
+            # Refill the cache if it's empty OR we've reached the end
+            if not self.fallback_cache or self.fallback_index >= len(self.fallback_cache):
                 offset = self.fallback_page * 20
                 print(f"📥 Fetching fallback page {self.fallback_page} with offset {offset}...")
                 effective_query = query or self.default_query
-                self.fallback_cache = self.search_paper(query=effective_query, limit=20, offset=offset)
-                self.fallback_index = 0
-                self.fallback_page += 1
-
-                # Exit if no data returned
-                if not isinstance(self.fallback_cache, list) or not self.fallback_cache:
+                
+                # FIX: Search papers and store the results properly
+                result = self.search_paper(query=effective_query, limit=20, offset=offset)
+                
+                # Check if we got a valid list of papers
+                if isinstance(result, list) and result:
+                    self.fallback_cache = result
+                    self.fallback_index = 0
+                    self.fallback_page += 1
+                else:
+                    # No papers found or error occurred
                     return {"error": "No fallback papers available."}
-
-            # Check for unseen paper
+            
+            # Now safely get the next unseen paper
             while self.fallback_index < len(self.fallback_cache):
                 paper = self.fallback_cache[self.fallback_index]
                 self.fallback_index += 1
-
+                
                 if paper["paperId"] not in self.seen_ids:
                     self.seen_ids.add(paper["paperId"])
                     return paper
-
+                    
 
     def get_fallback_batch(self, limit=5, query=None):
         batch = []
